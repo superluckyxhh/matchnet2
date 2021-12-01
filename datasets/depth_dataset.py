@@ -11,9 +11,11 @@ import h5py
 import json
 from scipy.spatial.distance import cdist 
 
+from common.functions import *
 from datasets.imageset import ImageSet
 from datasets.image import Image
 from datasets.limited_dataset import LimitedConcatDataset
+
 
 """
 MegaDepth   --->  ItemDataset ---> ImageSet     --->   Image
@@ -225,6 +227,8 @@ class ItemDataset:
         self.max_feats = max_feats
         self.crop_size = crop_size
         self.th = th
+        # self.ori_im0_shapes = []
+        # self.ori_im1_shapes = []
         self.pairs = json_data['pairs']
         self.imageset = ImageSet(root, json_data)
     
@@ -261,6 +265,11 @@ class ItemDataset:
         # image0 could call Image class function like scale ...
         image0 = self.imageset[pair0]
         image1 = self.imageset[pair1]
+        ori_im0_shape = image0.orishape
+        ori_im1_shape = image1.orishape
+
+        # self.ori_im0_shapes.append(ori_im0_shape)
+        # self.ori_im1_shapes.append(ori_im1_shape)
 
         kpts0, desc0, scores0 = self._get_feats(pair0)
         kpts1, desc1, scores1 = self._get_feats(pair1)
@@ -283,7 +292,9 @@ class ItemDataset:
 
         # Using images and kpts to obtain assignment
         assignment, matches = cross_nearest_matching(image0, kpts0, image1, kpts1, self.th)
-
+        
+        if matches.shape[0] < self.max_feats / 50:
+            return None
         ##################  Test: plot matches ##################
         # plot_matches(bitmap0, bitmap1, kpts0, kpts1, matches, 'matches')
         #########################################################
@@ -291,19 +302,23 @@ class ItemDataset:
         return {
             'bitmap0': bitmap0,
             'bitmap1': bitmap1,
+            # 'ori_im0_shapes': torch.tensor(self.ori_im0_shapes),
+            # 'ori_im1_shapes': torch.tensor(self.ori_im1_shapes),
+            'ori_im0_shapes':ori_im0_shape,
+            'ori_im1_shapes':ori_im1_shape,
             'keypoints0': kpts0,
             'keypoints1': kpts1,
             'descriptors0': desc0,
             'descriptors1': desc1,
             'scores0': scores0,
             'scores1': scores1,
-            'assignment': assignment
+            'assignment': assignment,
         }
 
 
 class DepthDataset(LimitedConcatDataset):
     def __init__(
-        self, json_path, crop_size, max_feats=1024,
+        self, json_path, crop_size=(480, 640), max_feats=1024,
         limit=None, shuffle=False, warn=True
     ):   
         root, _ = os.path.split(json_path)
@@ -349,12 +364,14 @@ def build_depth(
     )
 
     # TODO: Test 还没测试
-    test_dataset = DepthDataset(
-        os.path.join(root, 'test/dataset.json'),
-        crop_size=crop_size,
-        max_feats=max_feats,
-        limit=test_limit,
-        shuffle=True
-    )
+    # TODO: ImageSet pairs ---> tuples
+    # test_dataset = DepthDataset(
+    #     os.path.join(root, 'test/dataset.json'),
+    #     crop_size=crop_size,
+    #     max_feats=max_feats,
+    #     limit=test_limit,
+    #     shuffle=True
+    # )
+    test_dataset = None
 
     return train_dataset, test_dataset

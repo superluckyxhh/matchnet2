@@ -51,6 +51,10 @@ class Image:
     @property
     def shape(self):
         return self.bitmap.shape[-2:]
+
+    @property
+    def orishape(self):
+        return torch.tensor(self.bitmap.shape[-2:])
     
     @property
     def length(self):
